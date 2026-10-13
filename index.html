@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Ma chambre à mots</title>
+<style>
+:root{--wall:#e8dcc8;--floor:#b98a5a;--ink:#2b2118;--paper:#fffaf0;--accent:#2f7d6d;--trim:#f4efe4;--rug:#c0614f;--muted:#6b5b4b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--wall:#2a2f35;--floor:#5a4430;--ink:#f1e9dc;--paper:#3a3f46;--accent:#6fcab8;--trim:#1d2025;--rug:#7a3b33;--muted:#b9ae9f}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{overflow:auto;font-family:Georgia,"Times New Roman",serif;background:var(--wall);color:var(--ink);display:flex;flex-direction:column}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px}
+h1{font-size:1.2rem;margin:0}
+.info{font-size:.85rem;color:var(--muted);font-family:system-ui,sans-serif;text-align:right}
+#room{position:relative;width:calc(100% - 24px);max-width:480px;aspect-ratio:4/5;margin:0 auto;border-radius:12px;overflow:hidden;border:2px solid var(--muted)}
+.bg{position:absolute;inset:0;width:100%;height:100%}
+.obj{position:absolute;transform:translate(-50%,-100%);background:none;border:0;cursor:pointer;padding:0}
+.st{position:absolute;left:50%;top:100%;transform:translateX(-50%);font-size:.6rem;color:#e0a800;white-space:nowrap;text-shadow:0 0 2px rgba(0,0,0,.5)}
+.lvl{border-top:1px dashed var(--muted);margin-top:12px;padding-top:8px;text-align:left}
+.lvl b{color:var(--accent);font-size:.85rem}
+.stars{color:#e0a800;letter-spacing:2px}
+.obj:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.empty{position:absolute;inset:0 0 auto 0;top:6%;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}
+footer{padding:12px 16px}
+#draw{width:100%;font:inherit;font-size:1.05rem;padding:14px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+#draw:disabled{opacity:.55;cursor:default}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;place-items:center;padding:20px}
+#modal.on{display:grid}
+.card{background:var(--paper);color:var(--ink);border-radius:14px;padding:24px;max-width:340px;width:100%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.card .e{width:84px;margin:0 auto}
+.card h2{margin:.2em 0 0;font-size:1.8rem}
+.card .g{color:var(--muted);font-style:italic;margin:0 0 .8em}
+.card p{margin:.5em 0;line-height:1.5}
+.card .ex{color:var(--muted)}
+.card button{margin-top:14px;font:inherit;padding:10px 20px;border-radius:8px;border:1px solid var(--muted);background:none;color:var(--ink);cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ma chambre à mots</h1>
+  <div class="info"><div id="count"></div><div id="timer"></div></div>
+</header>
+<main id="room"></main>
+<footer><button id="draw">Récolter un mot</button></footer>
+<div id="modal" role="dialog" aria-modal="true"><div class="card" id="card"></div></div>
+
+<script>
+const WORDS=[
+["apple","🍎","noun · pomme","A round fruit that grows on trees.","I eat an apple every day."],
+["candle","🕯️","noun · bougie","A stick of wax that gives light when it burns.","The candle is on the table."],
+["key","🔑","noun · clé","A small metal object that opens a door.","I lost my key."],
+["clock","🕰️","noun · horloge","A thing on the wall that shows the time.","The clock says nine."],
+["book","📖","noun · livre","Pages with words that you read.","She reads a book in bed."],
+["umbrella","☂️","noun · parapluie","You hold it over your head when it rains.","Take your umbrella today."],
+["cactus","🌵","noun · cactus","A desert plant with sharp spikes.","A cactus needs little water."],
+["guitar","🎸","noun · guitare","A musical instrument with strings.","He plays the guitar well."],
+["glasses","👓","noun · lunettes","You wear them on your nose to see better.","Where are my glasses?"],
+["feather","🪶","noun · plume","A light, soft part of a bird's body.","A feather fell from the tree."],
+["shell","🐚","noun · coquillage","The hard outside of a sea animal.","I found a shell on the beach."],
+["lamp","🏮","noun · lampe","A light you can carry or put on a table.","Turn on the lamp, please."],
+["suitcase","🧳","noun · valise","A bag you use when you travel.","My suitcase is very heavy."],
+["drum","🥁","noun · tambour","A musical instrument you hit with sticks.","The drum is loud."],
+["butterfly","🦋","noun · papillon","An insect with big, colorful wings.","A butterfly landed on the flower."],
+["crown","👑","noun · couronne","A gold hat that a king or queen wears.","The queen wears a crown."],
+["mushroom","🍄","noun · champignon","A small plant that grows in the forest.","Don't eat that mushroom."],
+["compass","🧭","noun · boussole","A tool that shows you where north is.","The compass points north."],
+["bread","🍞","noun · pain","A food made from flour and baked in an oven.","I buy bread every morning."],
+["moon","🌙","noun · lune","The bright round thing in the sky at night.","The moon is full tonight."],
+["bed","🛏️","noun · lit","A piece of furniture where you sleep.","I go to bed at ten.",[45,68]],
+["window","🪟","noun · fenêtre","An opening in a wall with glass in it.","Open the window, please.",[28,26]],
+["mirror","🪞","noun · miroir","Glass where you can see yourself.","She looks in the mirror.",[62,26]],
+["door","🚪","noun · porte","You open it to go in or out of a room.","Close the door, please.",[91,48]],
+["sofa","🛋️","noun · canapé","A soft seat for two or three people.","We watch TV on the sofa.",[16,76]],
+["chair","🪑","noun · chaise","A seat for one person, with a back.","Sit on that chair.",[76,80]],
+["plant","🪴","noun · plante","A living thing with leaves, in a pot.","The plant needs water.",[92,78]],
+["teddy bear","🧸","noun · ours en peluche","A soft toy that looks like a bear.","The baby loves her teddy bear."]
+];
+const EXTRA={
+apple:["The apple is red and sweet.","An apple a day keeps the doctor away. (une pomme par jour éloigne le médecin)"],
+candle:["She blows out the candle.","To burn the candle at both ends. (se surmener)"],
+key:["Where did you put the car key?","The key to success. (la clé du succès)"],
+clock:["The clock is on the wall.","Around the clock. (jour et nuit)"],
+book:["This book is very funny.","Don't judge a book by its cover. (ne juge pas sur les apparences)"],
+umbrella:["He opens his umbrella.","It's raining cats and dogs. (il pleut des cordes)"],
+cactus:["Careful, the cactus is sharp!","A prickly person. (une personne irritable)"],
+guitar:["My brother has a red guitar.","To strike a chord. (toucher une corde sensible)"],
+glasses:["He puts on his glasses to read.","Rose-colored glasses. (voir la vie en rose)"],
+feather:["The cat plays with a feather.","Light as a feather. (léger comme une plume)"],
+shell:["A shell sounds like the sea.","To come out of your shell. (sortir de sa coquille)"],
+lamp:["There is a lamp next to my bed.","To burn the midnight oil. (veiller tard pour travailler)"],
+suitcase:["I pack my suitcase on Sunday.","To live out of a suitcase. (vivre sur ses valises)"],
+drum:["The baby hits the drum.","To march to the beat of your own drum. (suivre sa propre voie)"],
+butterfly:["The butterfly is yellow and blue.","Butterflies in your stomach. (avoir le trac)"],
+crown:["The crown is made of gold.","The jewel in the crown. (le joyau de la couronne)"],
+mushroom:["We cook a mushroom soup.","To grow like a mushroom. (pousser comme un champignon)"],
+compass:["Use the compass to find your way.","A moral compass. (une boussole morale)"],
+bread:["Do you want some bread with butter?","The best thing since sliced bread. (la meilleure invention qui soit)"],
+moon:["We see the moon at night.","Once in a blue moon. (très rarement)"],
+bed:["My bed is very comfortable.","To get out of bed on the wrong side. (se lever du pied gauche)"],
+window:["The cat sits by the window.","A window of opportunity. (une occasion à saisir)"],
+mirror:["The mirror is on the wall.","Mirror, mirror on the wall. (miroir, mon beau miroir)"],
+door:["Someone is at the door.","Behind closed doors. (à huis clos)"],
+sofa:["The dog sleeps on the sofa.","A couch potato. (un pantouflard)"],
+chair:["There are four chairs at the table.","Pull up a chair. (prends une chaise, installe-toi)"],
+plant:["I water the plant on Monday.","To plant a seed. (semer une graine, une idée)"],
+"teddy bear":["He sleeps with his teddy bear.","A big teddy bear. (un gros nounours, quelqu'un de doux)"]
+};
+const ICON={
+"apple":'<path d="M32 20c-8-6-20 0-18 14s10 24 18 24 16-8 18-24-10-20-18-14z" fill="#d94a3d"/><path d="M32 20c0-6 2-10 6-12"/><path d="M38 10c6-2 10 2 10 2s-4 6-10 4z" fill="#5aa05a"/>',
+"candle":'<rect x="24" y="26" width="16" height="32" rx="2" fill="#f4ead2"/><path d="M32 26v-4"/><path d="M32 6c7 6 7 13 0 16-7-3-7-10 0-16z" fill="#f2a431"/><path d="M18 58h28"/>',
+"key":'<circle cx="22" cy="22" r="12" fill="#e0b73a"/><circle cx="22" cy="22" r="4" fill="#fffaf0"/><path d="M31 31l24 24" stroke="#e0b73a" stroke-width="7"/><path d="M46 46l6-6M40 40l6-6"/>',
+"clock":'<circle cx="32" cy="32" r="28" fill="#fffaf0" stroke="#8a5a3b" stroke-width="4"/><path d="M32 14v18l12 8"/><circle cx="32" cy="32" r="2" fill="#3a2e2a"/>',
+"book":'<path d="M6 12h20c4 0 6 2 6 5v40c0-3-2-5-6-5H6z" fill="#3b82a6"/><path d="M58 12H38c-4 0-6 2-6 5v40c0-3 2-5 6-5h20z" fill="#5aa6c9"/>',
+"umbrella":'<path d="M6 32C6 16 18 6 32 6s26 10 26 26z" fill="#c2453d"/><path d="M19 32c0-8 5-20 13-26M45 32c0-8-5-20-13-26M32 32v22c0 6 8 6 8 0" stroke-width="2.5"/>',
+"cactus":'<rect x="14" y="38" width="16" height="8" fill="#4f9a5c"/><rect x="36" y="30" width="14" height="8" fill="#4f9a5c"/><rect x="10" y="22" width="10" height="24" rx="5" fill="#4f9a5c"/><rect x="44" y="16" width="10" height="22" rx="5" fill="#4f9a5c"/><rect x="24" y="8" width="16" height="46" rx="8" fill="#4f9a5c"/><path d="M16 50h32l-4 12H20z" fill="#c8794a"/>',
+"guitar":'<path d="M46 6l12 12-9 9-12-12z" fill="#7a4a2b"/><path d="M42 22L28 36" stroke-width="5"/><circle cx="22" cy="42" r="15" fill="#d98a3d"/><circle cx="22" cy="42" r="5" fill="#3a2e2a"/>',
+"glasses":'<circle cx="17" cy="38" r="12" fill="#cfe9f3"/><circle cx="47" cy="38" r="12" fill="#cfe9f3"/><path d="M29 36h6M5 34L2 24M59 34l3-10"/>',
+"feather":'<path d="M54 8C30 8 14 24 12 46l-4 10 8-4c22-2 38-18 38-44z" fill="#7fb5d9"/><path d="M52 10L10 56"/>',
+"shell":'<path d="M6 46C6 24 18 12 32 12s26 12 26 34c0 6-8 8-26 8S6 52 6 46z" fill="#f0b6a0"/><path d="M32 12v42M19 16l6 38M45 16l-6 38"/>',
+"lamp":'<path d="M20 6h24l6 22H14z" fill="#f2c14e"/><path d="M32 28v30" stroke-width="3"/><ellipse cx="32" cy="58" rx="14" ry="4" fill="#6b5b4b"/>',
+"suitcase":'<rect x="6" y="18" width="52" height="38" rx="5" fill="#b5533c"/><path d="M22 18v-6h20v6M6 34h52"/><rect x="28" y="31" width="8" height="6" fill="#e0b73a"/>',
+"drum":'<path d="M8 20v26c0 5 11 8 24 8s24-3 24-8V20z" fill="#c2453d"/><path d="M8 20l20 34M56 20L36 54"/><ellipse cx="32" cy="20" rx="24" ry="8" fill="#fffaf0"/>',
+"butterfly":'<path d="M32 30C20 4 2 14 8 30s16 12 24 0zM32 30C44 4 62 14 56 30s-16 12-24 0z" fill="#9a6fd1"/><path d="M32 34c-8 4-16 8-14 18 8 2 14-6 14-18zM32 34c8 4 16 8 14 18-8 2-14-6-14-18z" fill="#d98ad1"/><path d="M32 16v32" stroke-width="3"/>',
+"crown":'<path d="M8 52L4 18l16 14 12-20 12 20 16-14-4 34z" fill="#f2c14e"/><circle cx="32" cy="40" r="3" fill="#c2453d"/>',
+"mushroom":'<path d="M24 34h16l-2 22H26z" fill="#f4ead2"/><path d="M6 34C6 16 20 8 32 8s26 8 26 26z" fill="#c2453d"/><circle cx="20" cy="22" r="4" fill="#fff"/><circle cx="38" cy="17" r="3" fill="#fff"/><circle cx="47" cy="27" r="3" fill="#fff"/>',
+"compass":'<circle cx="32" cy="32" r="28" fill="#e0b73a"/><circle cx="32" cy="32" r="21" fill="#fffaf0"/><path d="M32 12l7 20-7 20-7-20z"/><path d="M32 12l7 20H25z" fill="#c2453d"/>',
+"bread":'<path d="M6 40c-2-14 8-26 26-26s28 12 26 26c0 8-6 12-12 12H18c-6 0-12-4-12-12z" fill="#d9a05b"/><path d="M22 24l-4 12M34 20l-4 14M46 24l-4 12"/>',
+"moon":'<path d="M42 6a27 27 0 1 0 16 42A23 23 0 0 1 42 6z" fill="#f6e08a"/>',
+"bed":'<rect x="8" y="10" width="48" height="28" rx="4" fill="#8a5a3b"/><rect x="4" y="30" width="56" height="20" rx="3" fill="#5b8fb9"/><rect x="11" y="23" width="19" height="11" rx="5" fill="#fffaf0"/><rect x="34" y="23" width="19" height="11" rx="5" fill="#fffaf0"/><path d="M4 41h56"/><rect x="6" y="50" width="6" height="10" fill="#8a5a3b"/><rect x="52" y="50" width="6" height="10" fill="#8a5a3b"/>',
+"window":'<rect x="6" y="4" width="52" height="54" fill="#a9d6ef"/><path d="M32 4v54M6 31h52" stroke="#8a5a3b" stroke-width="3"/><rect x="4" y="2" width="56" height="58" fill="none" stroke="#8a5a3b" stroke-width="4"/><rect x="0" y="58" width="64" height="5" fill="#8a5a3b"/>',
+"mirror":'<ellipse cx="32" cy="32" rx="19" ry="28" fill="#cfe9f3" stroke="#c9a14a" stroke-width="4"/><path d="M24 22l7-8" stroke="#fff" stroke-width="3"/>',
+"door":'<rect x="14" y="2" width="36" height="60" rx="2" fill="#9a6a45"/><rect x="19" y="8" width="26" height="20"/><rect x="19" y="34" width="26" height="22"/><circle cx="43" cy="34" r="2.5" fill="#e0b73a"/>',
+"sofa":'<rect x="8" y="14" width="48" height="26" rx="8" fill="#4f7f8a"/><rect x="2" y="30" width="14" height="24" rx="6" fill="#3e6a74"/><rect x="48" y="30" width="14" height="24" rx="6" fill="#3e6a74"/><rect x="14" y="34" width="36" height="16" rx="4" fill="#5f95a1"/><path d="M10 54v6M54 54v6"/>',
+"chair":'<rect x="18" y="4" width="28" height="28" rx="3" fill="#b9814f"/><rect x="14" y="32" width="36" height="8" rx="2" fill="#a06a3d"/><path d="M18 40v20M46 40v20" stroke-width="4"/>',
+"plant":'<path d="M32 40C20 38 12 26 18 12c10 2 16 14 14 28zM32 40c12-2 20-14 14-28-10 2-16 14-14 28zM32 40c-5-10-3-24 0-34 3 10 5 24 0 34z" fill="#4f9a5c"/><path d="M16 42h32l-4 20H20z" fill="#c8794a"/>',
+"teddy bear":'<circle cx="17" cy="12" r="7" fill="#b9814f"/><circle cx="47" cy="12" r="7" fill="#b9814f"/><ellipse cx="32" cy="46" rx="17" ry="15" fill="#c99560"/><circle cx="32" cy="22" r="15" fill="#c99560"/><ellipse cx="32" cy="27" rx="6" ry="4.5" fill="#f4ead2"/><circle cx="32" cy="25" r="2" fill="#3a2e2a"/><circle cx="25" cy="18" r="1.5" fill="#3a2e2a"/><circle cx="39" cy="18" r="1.5" fill="#3a2e2a"/>'
+};
+const PLACE={"window": [105, 205, 100], "cactus": [152, 208, 30], "moon": [88, 170, 24], "mirror": [228, 222, 64], "clock": [228, 128, 40], "candle": [192, 262, 26], "book": [220, 262, 28], "apple": [248, 262, 24], "key": [274, 262, 24], "feather": [298, 262, 26], "door": [352, 335, 100], "umbrella": [300, 360, 44], "butterfly": [312, 150, 38], "bed": [95, 428, 180], "teddy bear": [140, 348, 42], "crown": [58, 345, 32], "lamp": [200, 432, 72], "guitar": [258, 452, 70], "sofa": [325, 470, 135], "chair": [205, 478, 64], "plant": [30, 482, 56], "suitcase": [50, 498, 56], "shell": [105, 498, 28], "mushroom": [140, 498, 28], "compass": [172, 498, 30], "bread": [250, 498, 28], "drum": [392, 498, 40]};
+const icon=n=>'<svg viewBox="0 0 64 64" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" style="stroke:#3a2e2a;display:block;width:100%">'+(ICON[n]||"")+'</svg>';
+const SCENE='<svg class="bg" viewBox="0 0 400 500" preserveAspectRatio="none"><rect width="400" height="335" fill="var(--wall)"/><rect y="335" width="400" height="165" fill="var(--floor)"/><rect y="326" width="400" height="12" fill="var(--trim)"/><g stroke="var(--trim)" stroke-width="1" opacity=".5"><path d="M0 380h400M0 430h400M0 480h400M70 335l-30 165M200 335v165M330 335l30 165"/></g><ellipse cx="200" cy="445" rx="150" ry="30" fill="var(--rug)"/><ellipse cx="200" cy="445" rx="130" ry="23" fill="none" stroke="var(--wall)" stroke-width="2" opacity=".6"/><rect x="172" y="262" width="142" height="6" fill="var(--floor)"/><path d="M182 268v12M304 268v12" stroke="var(--floor)" stroke-width="4"/></svg>';
+const KEY="mots_en_v1",H12=12*3600*1000,MAX=5;
+let S={got:{},coins:0,left:MAX,start:0};
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+
+function refill(){if(S.left<MAX&&S.start&&Date.now()-S.start>=H12){S.left=MAX;S.start=0;save()}}
+function fmt(ms){const m=Math.ceil(ms/60000);return Math.floor(m/60)+"h"+String(m%60).padStart(2,"0")}
+function ui(){
+  refill();
+  $("count").textContent=S.left+" tirage"+(S.left>1?"s":"")+" · "+S.coins+" pièces";
+  const d=$("draw");d.disabled=S.left===0;
+  d.textContent=S.left?"Récolter un mot":"Plus de tirage";
+  $("timer").textContent=S.left===0?"Prochains mots dans "+fmt(S.start+H12-Date.now()):"";
+}
+function render(){
+  const room=$("room");room.innerHTML=SCENE;
+  const ids=Object.keys(S.got);
+  if(!ids.length)room.insertAdjacentHTML("beforeend",'<div class="empty">Ta chambre est vide.<br>Récolte un premier mot pour la meubler.</div>');
+  ids.forEach(i=>{
+    const w=WORDS[i],p=PLACE[w[0]]||[200,470,40],lv=S.got[i].lv||1;
+    const b=document.createElement("button");
+    b.className="obj";b.innerHTML=icon(w[0])+'<span class="st">'+"★".repeat(lv)+"</span>";
+    b.style.cssText=`left:${p[0]/4}%;top:${p[1]/5}%;width:${p[2]/4}%;z-index:${p[1]}`;
+    b.setAttribute("aria-label",w[0]);b.onclick=()=>show(i);
+    room.appendChild(b);
+  });
+}
+function show(i,note){
+  const w=WORDS[i],lv=(S.got[i]&&S.got[i].lv)||1,x=EXTRA[w[0]]||[];
+  let h=`<div class="e">${icon(w[0])}</div><h2>${w[0]}</h2><div class="stars">${"★".repeat(lv)}${"☆".repeat(3-lv)}</div><p class="g">${w[2]}</p><p>${w[3]}</p><p class="ex">« ${w[4]} »</p>`;
+  if(lv>=2&&x[0])h+=`<div class="lvl"><b>Niveau 2</b><p class="ex">« ${x[0]} »</p></div>`;
+  if(lv>=3&&x[1])h+=`<div class="lvl"><b>Niveau 3</b><p class="ex">${x[1]}</p></div>`;
+  if(note)h+=`<p><strong>${note}</strong></p>`;
+  $("card").innerHTML=h+`<button id="close">Fermer</button>`;
+  $("modal").classList.add("on");$("close").focus();
+  $("close").onclick=()=>$("modal").classList.remove("on");
+}
+$("modal").onclick=e=>{if(e.target.id==="modal")$("modal").classList.remove("on")};
+$("draw").onclick=()=>{
+  refill();if(S.left<1)return;
+  if(S.left===MAX)S.start=Date.now();
+  S.left--;
+  const owned=Object.keys(S.got),free=WORDS.map((_,i)=>i).filter(i=>!(i in S.got));
+  let i,note="";
+  if(free.length&&!(owned.length&&Math.random()<.25)){
+    i=free[Math.floor(Math.random()*free.length)];
+    S.got[i]={lv:1};
+    note="Nouveau mot !";
+  }else{
+    i=+owned[Math.floor(Math.random()*owned.length)];
+    const g=S.got[i];g.lv=g.lv||1;
+    if(g.lv<3){g.lv++;note="Ta carte évolue : niveau "+g.lv+" !"}
+    else{S.coins++;note="Niveau max : +1 pièce"}
+  }
+  save();render();ui();show(i,note);
+};
+ui();render();setInterval(ui,30000);
+</script>
+</body>
+</html>
